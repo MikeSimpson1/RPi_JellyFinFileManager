@@ -133,6 +133,13 @@
                 {% for directory, directory_url in directories %}
                     <li>
                         <a href="{{ directory_url }}">{{ directory }}/</a>
+                        {% if directory != 'Downloads' and directory != 'Movies' and directory != 'Shows'%}
+                            <form action="{{ url_for('delete_file') }}" method="POST" style="display:inline;">
+                                <input type="hidden" name="filename" value="{{ file }}">
+                                <input type="hidden" name="path" value="{{ current_path }}">
+                                <button type="submit" class="delete">Delete</button>
+                            </form>
+                        {% endif %}
                     </li>
                 {% endfor %}
             </ul>
@@ -164,10 +171,10 @@
         {% if show_upload and not current_path == '' %}
         <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
             <input type="file" id="fileInput" name="file" multiple>
-            <input type="hidden" name="path" value="{{ current_path }}"> <!-- Ensure this hidden field is present -->
+            <input type="hidden" name="path" value="{{ current_path }}">
             <button type="button" onclick="uploadFiles()">Upload</button>
         </form>
-        <div id="progressContainer" class="progress-container"></div> <!-- Ensure this div is present -->        
+        <div id="progressContainer" class="progress-container"></div>     
         {% endif %}
         
         

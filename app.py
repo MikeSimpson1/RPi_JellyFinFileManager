@@ -107,8 +107,12 @@ def delete_file():
     path = request.form['path']
     full_path = os.path.join(app.config['UPLOAD_FOLDER'], path, filename)
     try:
-        os.remove(full_path)
-        app.logger.info(f"Deleted file {full_path}.")
+        if os.path.isfile(full_path):
+            os.remove(full_path)
+            app.logger.info(f"Deleted file {full_path}.")
+        else:
+            os.rmdir(full_path)
+            app.logger.info(f"Deleted directory {full_path}.")
         return redirect(url_for('index', req_path=path))
     except Exception as e:
         app.logger.error(f"Error deleting file: {e}")

@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Manager</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            background-color: #333;
+            color: #fff;
+            padding: 10px;
+            margin: 0;
+            text-align: center;
+        }
+        .container {
+            width: 80%;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .file-list, .dir-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .file-list li, .dir-list li {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .file-list li a, .dir-list li a {
+            flex-grow: 1;
+            text-decoration: none;
+            color: #333;
+        }
+        .file-list li button, .dir-list li button {
+            margin-left: 5px;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            color: #fff;
+            cursor: pointer;
+        }
+        .file-list li button.rename, .dir-list li button.rename {
+            background-color: #007bff;
+        }
+        .file-list li button.delete, .dir-list li button.delete {
+            background-color: #dc3545;
+        }
+        .file-list li button.download {
+            background-color: #28a745;
+        }
+        .progress-container {
+            margin-top: 20px;
+        }
+        .progress-bar {
+            margin-top: 10px;
+            width: 100%;
+            height: 30px;
+            background-color: #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        
+        .progress-bar div {
+            height: 100%;
+            background-color: #28a745;
+            text-align: center;
+            color: white;
+            position: absolute;
+            left: 0;
+            top: 0;
+            transition: width 0.2s;
+        }
+        .progress-text {
+            margin: 0;
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            color: white;
+            font-size: 14px;
+        }
+        
+        .error-message {
+            color: #dc3545;
+            margin-top: 10px;
+        }
+        .storage-bar {
+            margin-top: 20px;
+        }
+        .progress {
+            height: 20px;
+        }
+        #storage-bar {
+            width: 100%;
+            height: 30px;
+            background-color: rgb(205, 203, 203);
+            position: relative;
+        }
+        #used-storage {
+            height: 100%;
+            background-color: #007bff;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        #storage-info {
+            margin-top: 10px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h1>File Manager</h1>
+    <div class="container">
+        <a href="{{ url_for('index', req_path='') }}" style="display: block; text-align: center; margin-bottom: 20px; padding: 10px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 5px;">Home</a>
+        <div id="file-container">
+            <ul class="dir-list">
+                {% for directory, directory_url in directories %}
+                    <li>
+                        <a href="{{ directory_url }}">{{ directory }}/</a>
+                    </li>
+                {% endfor %}
+            </ul>
+            <ul class="file-list">
+                {% for file, file_url in files %}
+                    <li>
+                        <a href="{{ file_url }}">{{ file }}</a>
+                        <form action="{{ url_for('rename_file') }}" method="POST" style="display:inline;">
+                            <input type="hidden" name="filename" value="{{ file }}">
+                            <input type="hidden" name="path" value="{{ current_path }}">
+                            <input type="text" name="new_filename" placeholder="New name" required>
+                            <button type="submit" class="rename">Rename</button>
+                        </form>
+                        <form action="{{ url_for('delete_file') }}" method="POST" style="display:inline;">
+                            <input type="hidden" name="filename" value="{{ file }}">
+                            <input type="hidden" name="path" value="{{ current_path }}">
+                            <button type="submit" class="delete">Delete</button>
+                        </form>
+                        <form action="{{ url_for('download_file') }}" method="GET" style="display:inline;">
+                            <input type="hidden" name="filename" value="{{ file }}">
+                            <input type="hidden" name="path" value="{{ current_path }}">
+                            <button type="submit" class="download">Download</button>
+                        </form>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        {% if show_upload and not current_path == '' %}
+        <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
+            <input type="file" id="fileInput" name="file" multiple>
+            <input type="hidden" name="path" value="{{ current_path }}"> <!-- Ensure this hidden field is present -->
+            <button type="button" onclick="uploadFiles()">Upload</button>
+        </form>
+        <div id="progressContainer" class="progress-container"></div> <!-- Ensure this div is present -->        
+        {% endif %}
+        
+        
+        <div class="error-message" id="error-message"></div>
+        <div id="storage-bar">
+            <div id="used-storage"></div>
+        </div>
+        <div id="storage-info"></div>
+        
+    </div>
+    <script>
+        function updateStorageBar() {
+            fetch('/storage_info')
+                .then(response => response.json())
+                .then(data => {
+                    const total = data.total;
+                    const used = data.used;
+                    const percentageUsed = (used / total) * 100;
+
+                    document.getElementById('used-storage').style.width = percentageUsed + '%';
+                    document.getElementById('storage-info').textContent = 
+                        `Total: ${(total / (1024 ** 3)).toFixed(2)} GB | ` +
+                        `Used: ${(used / (1024 ** 3)).toFixed(2)} GB | ` +
+                        `Free: ${(data.free / (1024 ** 3)).toFixed(2)} GB`;
+                })
+                .catch(error => console.error('Error fetching storage info:', error));
+        }
+
+        // Update the storage bar when the page loads
+        document.addEventListener('DOMContentLoaded', updateStorageBar);
+    </script>
+    <script>
+        function updateFileList() {
+            const xhr = new XMLHttpRequest();
+            const path = document.querySelector('input[name="path"]').value;
+            xhr.open('GET', `/file_list?path=${encodeURIComponent(path)}`, true);
+    
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    const files = response.files;
+                    const fileList = document.querySelector('.file-list');
+                    fileList.innerHTML = ''; // Clear existing list
+    
+                    files.forEach(file => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `
+                            <a href="${file}">${file}</a>
+                            <form action="/rename" method="POST" style="display:inline;">
+                                <input type="hidden" name="filename" value="${file}">
+                                <input type="hidden" name="path" value="${path}">
+                                <input type="text" name="new_filename" placeholder="New name" required>
+                                <button type="submit" class="rename">Rename</button>
+                            </form>
+                            <form action="/delete" method="POST" style="display:inline;">
+                                <input type="hidden" name="filename" value="${file}">
+                                <input type="hidden" name="path" value="${path}">
+                                <button type="submit" class="delete">Delete</button>
+                            </form>
+                            <form action="/download" method="GET" style="display:inline;">
+                                <input type="hidden" name="filename" value="${file}">
+                                <input type="hidden" name="path" value="${path}">
+                                <button type="submit" class="download">Download</button>
+                            </form>
+                        `;
+                        fileList.appendChild(li);
+                    });
+                } else {
+                    console.error(`Failed to fetch file list: ${xhr.statusText}`);
+                }
+            };
+    
+            xhr.onerror = function () {
+                console.error('Network error while fetching file list.');
+            };
+    
+            xhr.send();
+        }
+    
+        function uploadFiles() {
+            const form = document.getElementById('uploadForm');
+            const fileInput = document.getElementById('fileInput');
+            const progressContainer = document.getElementById('progressContainer');
+            const estimatedTimeContainer = document.createElement('div');
+            estimatedTimeContainer.className = 'estimated-time';
+            progressContainer.appendChild(estimatedTimeContainer);
+        
+            if (!progressContainer) {
+                console.error('Progress container not found.');
+                return;
+            }
+        
+            const files = Array.from(fileInput.files);
+            let currentFileIndex = 0;
+            let totalFileSize = files.reduce((total, file) => total + file.size, 0);
+            let totalUploaded = 0;
+            let averageSpeed = 0; // in bytes per millisecond
+            let startTime = Date.now(); // Start time for all uploads
+        
+            function createProgressBar(fileName) {
+                const progressBarContainer = document.createElement('div');
+                progressBarContainer.className = 'progress-bar';
+                progressBarContainer.id = `progress-bar-container-${fileName}`;
+                progressBarContainer.innerHTML = `
+                    <div id="progress-bar-${fileName}" style="width: 0%;"></div>
+                    <span class="progress-text">${fileName}</span>`;
+                progressContainer.appendChild(progressBarContainer);
+            }
+        
+            function updateEstimatedTime() {
+                let bytesUploaded = 0;
+                files.forEach(file => {
+                    const progressElement = document.getElementById(`progress-bar-${file.name}`);
+                    if (progressElement) {
+                        const width = parseFloat(progressElement.style.width);
+                        if (!isNaN(width)) {
+                            bytesUploaded += (width / 100) * file.size;
+                        }
+                    }
+                });
+        
+                const remainingBytes = totalFileSize - bytesUploaded;
+                const elapsedTime = Date.now() - startTime;
+                const estimatedTime = averageSpeed ? (remainingBytes / averageSpeed) : 0; // in milliseconds
+        
+                const minutes = Math.floor(estimatedTime / 60000);
+                const seconds = Math.floor((estimatedTime % 60000) / 1000);
+        
+                estimatedTimeContainer.textContent = `Estimated time remaining: ${minutes}m ${seconds}s`;
+            }
+        
+            function uploadFile(file) {
+                return new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('path', form.querySelector('input[name="path"]').value);
+        
+                    xhr.open('POST', form.action, true);
+                    xhr.timeout = 600000; // Set timeout to 10 minutes (600,000 milliseconds)
+        
+                    const fileStartTime = Date.now(); // Start time for individual file
+                    let bytesUploaded = 0;
+        
+                    xhr.upload.onprogress = function (event) {
+                        if (event.lengthComputable) {
+                            const percentComplete = Math.round((event.loaded / event.total) * 100);
+                            document.getElementById(`progress-bar-${file.name}`).style.width = `${percentComplete}%`;
+        
+                            bytesUploaded = event.loaded;
+        
+                            const elapsedTime = Date.now() - fileStartTime;
+                            const speed = elapsedTime > 0 ? bytesUploaded / elapsedTime : 0; // bytes per millisecond
+        
+                            averageSpeed = (averageSpeed * totalUploaded + speed * bytesUploaded) / (totalUploaded + bytesUploaded);
+        
+                            updateEstimatedTime();
+                        }
+                    };
+        
+                    xhr.onload = function () {
+                        if (xhr.status === 200) {
+                            totalUploaded += file.size;
+                            resolve();
+                        } else {
+                            reject(`Server responded with status ${xhr.status}`);
+                        }
+                    };
+        
+                    xhr.onerror = function () {
+                        reject(`Network error: ${xhr.statusText}`);
+                    };
+        
+                    xhr.send(formData);
+                });
+            }
+        
+            function processNextFile() {
+                if (currentFileIndex >= files.length) {
+                    // Refresh the file list after all uploads finish
+                    updateFileList();
+                    return;
+                }
+        
+                const file = files[currentFileIndex];
+                uploadFile(file)
+                    .then(() => {
+                        console.log(`File ${file.name} uploaded successfully.`);
+                        currentFileIndex++;
+                        processNextFile(); // Proceed to next file immediately
+                    })
+                    .catch(error => {
+                        console.error(`Error uploading file ${file.name}:`, error);
+                        currentFileIndex++;
+                        processNextFile(); // Proceed to next file immediately
+                    });
+            }
+        
+            // Create progress bars for all files before starting uploads
+            files.forEach(file => createProgressBar(file.name));
+        
+            // Start processing files
+            processNextFile();
+        }        
+    </script>
+    
+</body>
+</html>

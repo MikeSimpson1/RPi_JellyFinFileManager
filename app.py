@@ -168,4 +168,4 @@ def request_entity_too_large(error):
     return "File is too large. Maximum file size is 10GB.", 413
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=80)
+    app.run(debug=False, host='0.0.0.0')

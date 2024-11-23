@@ -6,7 +6,7 @@ from logging.handlers import RotatingFileHandler
 import shutil
 
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 
 # Configure logging
 log_file = 'logfile.log'  # Replace with your desired log file path
@@ -117,6 +117,11 @@ def delete_file():
     except Exception as e:
         app.logger.error(f"Error deleting file: {e}")
         return f"Error deleting file: {e}", 500
+
+@app.route('/restart', methods=['POST'])
+def restart_service():
+    os.system('sudo shutdown now')
+    return jsonify({'success': True}), 200
 
 @app.route('/rename', methods=['POST'])
 def rename_file():

@@ -120,7 +120,7 @@ def delete_file():
 
 @app.route('/restart', methods=['POST'])
 def restart_service():
-    os.system('sudo restart now')
+    os.system('reboot')
     return jsonify({'success': True}), 200
 
 @app.route('/rename', methods=['POST'])
@@ -168,4 +168,4 @@ def request_entity_too_large(error):
     return "File is too large. Maximum file size is 10GB.", 413
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0')
+    app.run(debug=False, host='0.0.0.0', port=80)

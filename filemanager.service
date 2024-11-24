@@ -1,0 +1,11 @@
+[Unit]
+Description=Jellyfin File Manager
+After=multi-user.target
+
+[Service]
+User=root
+WorkingDirectory=<WORKING DIRECTORY OF APP>
+ExecStart=start_filemanager.sh
+
+[Install]
+WantedBy=multi-user.target

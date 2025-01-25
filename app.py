@@ -61,7 +61,7 @@ def save_file(file_data, file_path):
         
 @app.route('/storage_info', methods=['GET'])
 def storage_info():
-    total, used, free = shutil.disk_usage("/mnt/ssd")
+    total, used, free = shutil.disk_usage(UPLOAD_FOLDER)
     return jsonify({
         'total': total,
         'used': used,
